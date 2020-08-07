@@ -1,1 +1,1 @@
-# discord-gateway
+# Discord Gateway

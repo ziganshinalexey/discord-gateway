@@ -1,0 +1,14 @@
+{
+    "name": "ziganshinalexey/discord-gateway",
+    "description": "Socket connection with discord gateway",
+    "license": "mit",
+    "require": {
+        "php": "^7.2.0",
+        "ratchet/pawl": ">=0.3.5 <1.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ziganshinalexey\\DiscordGateway\\": ""
+        }
+    }
+}
