@@ -13,13 +13,8 @@ class Dispatch extends Command
     {
         State::log('Execute: DISPATCH');
 
-        $state = $this->getState();
-        $type  = $json->t;
-
+        $type = $json->t;
         State::log('Dispatch type: ' . $type);
-
-        // Once we get our first dispatch, be sure we're sending a heartbeat
-
 
         $this->getState()->dispatch($type, $json);
     }

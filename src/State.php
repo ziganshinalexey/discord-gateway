@@ -6,11 +6,13 @@ namespace Ziganshinalexey\DiscordGateway;
 
 use Ratchet\Client\WebSocket;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 use Ziganshinalexey\DiscordGateway\Command\Dispatch;
 use Ziganshinalexey\DiscordGateway\Command\Heartbeat;
 use Ziganshinalexey\DiscordGateway\Command\HeartbeatACK;
 use Ziganshinalexey\DiscordGateway\Command\Hello;
 use Ziganshinalexey\DiscordGateway\Command\Identify;
+use Ziganshinalexey\DiscordGateway\Command\Reconnect;
 
 /**
  * Class State.
@@ -46,6 +48,27 @@ class State
     protected $interval = 5;
 
     /**
+     * Current session id
+     *
+     * @var string
+     */
+    protected $sessionId;
+
+    /**
+     * Current sequence number
+     *
+     * @var int
+     */
+    protected $sequence;
+
+    /**
+     * Timer for heartbeat
+     *
+     * @var TimerInterface
+     */
+    protected $timer;
+
+    /**
      * Discord API operations to class relationships
      *
      * @var [type]
@@ -54,6 +77,7 @@ class State
         0  => Dispatch::class,
         1  => Hello::class,
         2  => Identify::class,
+        7  => Reconnect::class,
         10 => Hello::class,
         11 => HeartbeatACK::class,
     ];
@@ -64,6 +88,15 @@ class State
      * @var array
      */
     protected $dispatch = [];
+
+    /**
+     * Special current dispatch relationships
+     *
+     * @var array
+     */
+    protected $stateDispatch = [
+        'READY' => 'saveSession',
+    ];
 
     /**
      * Current bot status (used in identify)
@@ -156,6 +189,36 @@ class State
     }
 
     /**
+     * Get the current sequence number
+     *
+     * @return int
+     */
+    public function getSequence(): int
+    {
+        return $this->sequence;
+    }
+
+    /**
+     * Get the current session id
+     *
+     * @return string
+     */
+    public function getSessionId(): string
+    {
+        return $this->sessionId;
+    }
+
+    /**
+     * Get timer for heartbeat
+     *
+     * @return TimerInterface
+     */
+    public function getTimer(): TimerInterface
+    {
+        return $this->timer;
+    }
+
+    /**
      * Determine the action (command) to be taken based on the JSON input
      *
      * @param object $json JSON object, parsed from API response
@@ -165,6 +228,10 @@ class State
         $op   = $json->op;
         $loop = $this->getLoop();
 
+        if (isset($json->s)) {
+            $this->sequence = $json->s;
+        }
+
         // @todo: Пока переделать на мапу, потом на фабрику.
         $commandClass = $this->ops[$op];
         $command      = new $commandClass($this, $loop);
@@ -173,8 +240,10 @@ class State
 
     /**
      * Authorize the bot and update its state
+     *
+     * @return void
      */
-    public function authorize()
+    public function authorize(): void
     {
         $loop = $this->getLoop();
 
@@ -189,7 +258,12 @@ class State
         $this->status = self::STATUS_AUTHED;
     }
 
-    public function heartbeat()
+    /**
+     * Set heartbeat
+     *
+     * @return void
+     */
+    public function heartbeat(): void
     {
         $loop    = $this->getLoop();
         $command = new Heartbeat($this, $loop);
@@ -199,9 +273,9 @@ class State
     /**
      * Check the current state to see if the status is marked as authed (post-identify)
      *
-     * @return boolean Authed/not authed status
+     * @return boolean
      */
-    public function isAuthed()
+    public function isAuthed(): bool
     {
         return ($this->status == self::STATUS_AUTHED);
     }
@@ -224,13 +298,42 @@ class State
      *
      * @return mixed Result from call of dispatch handler
      */
-    public function dispatch($type, $json)
+    public function dispatch(string $type, object $json)
     {
+        $stateDispatch = $this->stateDispatch[$type] ?? null;
+        if ($stateDispatch) {
+            $this->$stateDispatch($json);
+        }
+
         $dispatch = $this->dispatch[$type] ?? null;
         if (null === $dispatch) {
             return null;
         }
 
         return $dispatch($json);
+    }
+
+    /**
+     * Method save session id
+     *
+     * @param object $json JSON object
+     *
+     * @return void
+     */
+    protected function saveSession(object $json): void
+    {
+        if (! property_exists($json, 'd')) {
+            return;
+        }
+        $data = $json->d;
+        if (! property_exists($data, 'session_id')) {
+            return;
+        }
+        $sessionId = $data->session_id;
+        if (null === $sessionId) {
+            echo 'SessionId is empty';
+        }
+
+        $this->sessionId = $sessionId;
     }
 }

@@ -74,13 +74,14 @@ class Bot
 
             $connection->on('message', function(MessageInterface $msg) use ($connection, $state, $loop) {
                 $payload = $msg->getPayload();
-                $json    = json_decode($payload);
+                echo $payload . PHP_EOL;
+                $json = json_decode($payload);
                 $state->action($json);
             });
 
-            $connection->on('close', function($code = null, $reason = null) {
-                echo "Connection closed ({$code} - {$reason})\n";
-                die();
+            $connection->on('close', function() use ($connection) {
+                $connection->close();
+                echo 'Connection closed' . PHP_EOL;
             });
         }, function(\Exception $e) use ($loop) {
             echo "Could not connect: {$e->getMessage()}\n";

@@ -15,7 +15,7 @@ class Heartbeat extends Command
 
         $json = json_encode([
             'op' => 1,
-            'd'  => 1,
+            'd'  => $this->getState()->getSequence(),
         ]);
 
         $this->getConnection()->send($json);
